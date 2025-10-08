@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miximaps"
+version = "0.1.0"
+authors = [
+  { name="Matthew X. Curinga", email="mcuringa@adelphi.edu" },
+]
+description = "Python tools to extend geopandas, folium, and Leaflet for mapping and spatial analysis. Helpers for working with US Census data and tiger/line shapefiles."
+readme = "README.md"
+
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: AGPL-3.0-or-later",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Framework :: Jupyter",
+    "Framework :: Matplotlib",
+    "Framework :: IPython",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords=["GIS, maps, folium, leaflet, geopandas, pandas, census, tigerline, UI"]
+
+dependencies = [
+"fiona",
+"folium",
+"geopandas",
+"humanize",
+"ipykernel",
+"keyring",
+"mapclassify",
+"plotly",
+"matplotlib",
+"seaborn",
+"scikit-learn",
+"shapely",
+"us"
+
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mcuringa/mixi-maps"
+"Bug Tracker" = "https://github.com/mcuringa/mixi-maps/issues"
+"Source" = "https://github.com/mcuringa/mixi-maps"
