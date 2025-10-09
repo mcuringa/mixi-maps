@@ -35,20 +35,22 @@ classifiers = [
 keywords=["GIS, maps, folium, leaflet, geopandas, pandas, census, tigerline, UI"]
 
 dependencies = [
-"fiona",
-"folium",
-"geopandas",
-"humanize",
-"ipykernel",
-"keyring",
-"mapclassify",
-"plotly",
-"matplotlib",
-"seaborn",
-"scikit-learn",
-"shapely",
-"us"
-
+    'census', 
+    'dotenv', 
+    'folium', 
+    'geographiclib', 
+    'geonamescache', 
+    'geopandas', 
+    'geopy', 
+    'mapclassify', 
+    'matplotlib', 
+    'plotly', 
+    'pygris', 
+    'requests', 
+    'scikit-learn', 
+    'seaborn', 
+    'shapely',
+    'us'
 ]
 
 [project.urls]
