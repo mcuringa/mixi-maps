@@ -34,6 +34,7 @@ def read_file(url, gdf=False):
     """Read a file from url or local cache."""
     filename = local_path(url)
     local = os.path.exists(filename)
+
     path = filename if local else url
     data = None
     if path.endswith(".parquet"):
@@ -86,8 +87,9 @@ def write_cache(df, path):
         else:
             with open(path, "w") as f:
                 f.write(df)
-    except:
+    except Exception as e:
         warnings.warn("Failed to write cache file:\n" + path)
+        warnings.warn(str(e))
 
 def download_file(url, local_filename):
     """Optimize file download using requests library."""
