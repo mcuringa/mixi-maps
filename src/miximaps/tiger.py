@@ -1,36 +1,79 @@
 from shapely.geometry import box
 from urllib.request import urlopen
 from io import BytesIO
-from shapely.geometry import MultiPolygon, Polygon, GeometryCollection
+from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
 import pandas as pd
 import geopandas as gpd
-
+import us
+from census import Census
 import pygris
 
 
 from urllib.parse import urlparse
 
+import os
+from . import datacache as dc
+from . import census as mc
+
 def make_multi(geo):
+    if geo is None or geo.is_empty:
+        return None
+    if isinstance(geo, Polygon):
+        return MultiPolygon([geo])
+    if isinstance(geo, MultiPolygon):
+        return geo
 
-    if isinstance(geo, GeometryCollection):
-        print(geo)
-        polygons = [geom for geom in geo if isinstance(
-            geom, (Polygon, MultiPolygon))]
-        return MultiPolygon(polygons)
-    return geo
+    # Handle GeometryCollection (and any geometry with .geoms)
+    parts = getattr(geo, "geoms", ())
+    polys = []
+    for g in parts:
+        if isinstance(g, Polygon):
+            polys.append(g)
+        elif isinstance(g, MultiPolygon):
+            polys.extend(g.geoms)
+        else:
+            sub = make_multi(g)
+            if isinstance(sub, MultiPolygon):
+                polys.extend(sub.geoms)
+
+    return MultiPolygon(polys) if polys else None
 
 
-def shoreline(df, year=2023):
+def clip_water(df, state_col="statefp", county_col="countyfp", threshold=.85, year=2023):
     """
-    Clip to the land area for all states in the dataframe.
+    Remove large water areas from the GeoDataFrame
     """
+    states = df[state_col].unique().tolist()
+    CT = us.states.CT.fips
 
-    land = pygris.states(year=year, cache=True)
-    land = land.to_crs(df.crs)
-    land = land[["geometry"]]
-    clipped = gpd.overlay(df, land, how="intersection", keep_geom_type=False)
-   
+    def get_water(st):
+        counties = df[df[state_col] == st][county_col].unique().tolist()
+        if st == CT:
+            counties = [f"0{c}" for c in counties if c.startswith("0")]
+        return pygris.area_water(state=st, county=counties, year=2023, cache=True)
+
+    water = [get_water(st) for st in states]
+    water = pd.concat(water, ignore_index=True)
+    water = gpd.GeoDataFrame(water, geometry='geometry', crs='EPSG:4269')
+    waterways = water.dissolve(
+        by="HYDROID",
+        aggfunc={
+            "FULLNAME": "first",
+            "ANSICODE": "first",
+            "MTFCC": "first",
+            "ALAND": "sum",
+            "AWATER": "sum"
+        }
+    ).reset_index()
+    waterways['water_rank'] = waterways.AWATER.rank(pct=True)
+    bigwater = waterways[waterways.water_rank > threshold]
+    x = df.copy()
+    x.geometry = x.geometry.apply(make_multi)
+
+    clipped = gpd.overlay(x, bigwater, how='difference')
     return clipped
+
+
 
 # def merge_states(df):
 #     df["STATEFP"] = df.ucgid.str[-2:]

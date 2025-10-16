@@ -58,41 +58,13 @@ def get_nyc_counties(region="metro"):
 def get_tracts(c, table, year=2023, region="inner", cache=True):
     """Get census tracts for NYC and inner suburbs for an acs5 table"""
 
-    filename = f"nyc_tracts_{table}-{region}-{year}.geojson"
-    path = dc.local_path(filename)
-    filename = os.path.join(path, filename)
-
-    if os.path.exists(filename) and cache:
-        return dc.read_file(filename, gdf=True)
-
-
-    fields = mc.table_vars(table)
-    vars = list(fields.keys())
+    if cache:
+        filename = f"nyc_tracts_{table}-{region}-{year}.geojson"
+    else:
+        filename = None
 
     county_fips = get_nyc_counties(region=region).keys()
-
-    print(county_fips)
-
-    results = []
-    for state, counties in county_fips:
-        r = c.acs5.state_county_tract(vars, state, counties, Census.ALL)
-        results.extend(r)
-
-    df = pd.DataFrame(results)
-    df.rename(columns=fields, inplace=True)
-
-    # drop rows with no data
-    df.dropna(inplace=True)
-
-
-    # make nicer column names and re-order
-    df["county_name"] = df.apply(mc.county_mapper(), axis=1)
-    df["statefp"] = df.state
-    df["state"] = df.statefp.apply(mc.lookup_state)
-    df["countyfp"] = df["county"]
-    df["county"] = df.county_name
-    df.drop(columns=["county_name"], inplace=True)
-   
+    df = mc.get_tracts(c, table, county_fips,year=year,filename=filename)
 
     boros = {
         '005': 'Bronx',
@@ -104,21 +76,4 @@ def get_tracts(c, table, year=2023, region="inner", cache=True):
 
     df['borough'] = df['countyfp'].map(boros).fillna('-')
 
-
-
-
-    state_fips = df.statefp.unique().tolist()
-
-
-
-    # merge tiger tracts
-    tracts = pd.concat([pygris.tracts(state=s, year=year, cache=True) for s in state_fips])
-    tracts["geography"] = tracts["GEOIDFQ"]
-    df = df.merge(tracts[["geography", "geometry"]], on="geography", )
-    df = gpd.GeoDataFrame(df, geometry="geometry")
-    df = tiger.shoreline(df, year=year)
-    
-    if cache:
-        print("Writing to cache:", filename)
-        dc.write_cache(df, filename)
     return df
