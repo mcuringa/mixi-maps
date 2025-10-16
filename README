@@ -1,0 +1,6 @@
+`miximaps` is a Python library to make it easier to work with maps and geospatial data.
+It builds on popular libraries like `pandas`, `geopandas`, and `folium`; as well as `census` and `pygris` for access to US Census data.
+
+It was created to support the Adelphi University Manhattan Institute for STEM and the Imagination (MIXI) _critical cartography and map club_.
+
+See <https://mixi.nyc> for more information.

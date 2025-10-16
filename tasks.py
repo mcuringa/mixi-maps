@@ -60,8 +60,8 @@ def push(c, production=False):
     api_token = os.getenv("PYPI_API_TOKEN")
 
     project = get_project_config()
-    name = {project['name']}
-    current = f"{name}-{project['version']}"
+    current = f"{project['name']}-{project['version']}"
+    print(current)
     if production:
         print("Pushing to pypi. This is NOT A DRILL.")
         c.run(f"twine upload dist/{current}* -u __token__ -p {api_token}")
