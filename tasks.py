@@ -50,7 +50,8 @@ def build(c):
     c.run("python -m build")
     c.run(f"cp dist/{name}-{project['version']}.tar.gz dist/{name}-latest.tar.gz")
 
-@task
+
+@with_env
 def push(c, production=False):
     """Push the current distribution to pypi.
     By default, this pushes to testpypi.
@@ -58,6 +59,7 @@ def push(c, production=False):
     """
 
     api_token = os.getenv("PYPI_API_TOKEN")
+    print(api_token)
 
     project = get_project_config()
     current = f"{project['name']}-{project['version']}"
