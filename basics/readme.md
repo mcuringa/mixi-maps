@@ -25,6 +25,10 @@ Notebooks
    locations of public pools from NYC Open Data. It then merges the two datasets using a spatial join
    function from `GeoPandas` to find the closest pool to each tract. It then creates a scatter plot
    and calculates a Pearson R correlation to see if there is a relationship between median rent and distance to the nearest pool (there isn't).
+6. **rent-change.ipynb**
+   This takes a look at multiple years of census data to create a
+   layered map, allowing a glimpse at how NYC rents have changed over
+   the period of 2010-2024.
 
 
 
