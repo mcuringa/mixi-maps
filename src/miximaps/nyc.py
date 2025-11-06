@@ -9,6 +9,10 @@ from . import census as mc
 from . import datacache as dc
 from . import tiger
 
+# some useful CRS projections
+crs_meters = 2263
+crs_feet = 6539
+crs_leaflet = 4326  # wgsa84 World Geodetic System
 
 def get_nyc_counties(region="metro"):
     """Get the FIPS codes for NYC and its inner suburbs"""
@@ -58,10 +62,11 @@ def get_nyc_counties(region="metro"):
 def get_tracts(c, table, year=2023, region="inner", cache=True):
     """Get census tracts for NYC and inner suburbs for an acs5 table"""
 
-    if cache:
-        filename = f"nyc_tracts_{table}-{region}-{year}.geojson"
-    else:
-        filename = None
+
+    filename = f"nyc_tracts_{table}-{region}-{year}.geojson"
+    if not cache:
+        print("clearing cache")
+        dc.clear_cache(filename)
 
     county_fips = get_nyc_counties(region=region).keys()
     df = mc.get_tracts(c, table, county_fips,year=year,filename=filename)
@@ -77,3 +82,23 @@ def get_tracts(c, table, year=2023, region="inner", cache=True):
     df['borough'] = df['countyfp'].map(boros).fillna('-')
 
     return df
+
+
+def get_neighborhoods(cache=True):
+
+    url ="https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson"
+    if cache:
+        df = dc.read_file(url)
+    else:
+        df = gpd.read_file(url)
+
+    df = df[['ntaname', 'boroname', 'nta2020', 'geometry']]
+    cols = {
+        'ntaname': 'neighborhood',
+        'boroname': 'borough',
+        'nta2020': 'nta2020'
+    }
+    df.rename(columns=cols, inplace=True)
+
+    return df
+

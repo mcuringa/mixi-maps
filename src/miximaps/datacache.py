@@ -64,6 +64,13 @@ def read_file(url, gdf=False):
 
     return data
 
+def clear_cache(fn):
+    path = local_path(fn)
+    path = os.path.join(path, fn)
+    if os.path.exists(path):
+        os.remove(path)
+
+
 def write_cache(df, path):
     """Write a data file to the user local cache."""
     # create the directory if it doesn't exist

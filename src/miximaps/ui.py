@@ -31,7 +31,10 @@ def base_map(gdf=None, center=None, zoom=10, provider=xyz.CartoDB.Positron, name
     elif center == None:
         center = [40.69018448848042, -73.98654521557344]  # MIXI lab, Brooklyn
 
-    attr = "miximaps" if not provider.attribution else provider.attribution
+    attr = "miximaps" 
+    if provider.attribution and len(provider.attribution) > 0:
+        attr = provider.attribution
+        
     m = folium.Map(name=name, tiles=provider, attr=attr, location=center, zoom_start=zoom)
     return m
 
@@ -75,6 +78,15 @@ def make_labels(m, df, col, style={}):
     m
     
     """
+    default_style = {
+        "min-width: 80px"
+        "font-size": "10pt",
+        "font-weight": "bold",
+        "color": "black"
+    }
+
+    style = default_style | style
+
     style_str = ";".join([f"{k}:{v}" for k, v in style.items()])
 
     def label(row):
@@ -136,7 +148,7 @@ def popup(cols, style={"min-width": "200px"}, title=True, fmt_funcs={}):
 
 
 def fmt_num(col, n):
-    if col.endswith("_pct"):
+    if col.endswith("_pct") or col.endswith("%"):
         return pct(n)
     try:
         n = float(n)

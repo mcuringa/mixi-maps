@@ -101,7 +101,7 @@ def get_tracts(c, table, state_counties, year=2023, filename=None, geo=True):
         If provided, the function will cache the results to this filename
         in the default data cache directory (i.e. provide just the unique filename, not a path).
         This cached file will be used in subsequent calls to avoid redundant API requests.
-    goe : bool, optional
+    geo : bool, optional
         If `True` (default), return TIGER/line tract geometries, else just return the
         ACS5 tract data.
     
@@ -125,6 +125,8 @@ def get_tracts(c, table, state_counties, year=2023, filename=None, geo=True):
         cache = True
 
     fields = table_vars(table, year=year)
+    # add population estimate into every query
+    fields["B01003_001E"] = "total_population"
     vars = list(fields.keys())
 
     results = []
@@ -158,6 +160,7 @@ def get_tracts(c, table, state_counties, year=2023, filename=None, geo=True):
         df = tiger.clip_water(df)
 
     if cache:
+        print("writing cache")
         dc.write_cache(df, filename)
     return df
 
