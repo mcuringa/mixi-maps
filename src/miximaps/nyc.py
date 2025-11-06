@@ -84,6 +84,37 @@ def get_tracts(c, table, year=2023, region="inner", cache=True):
     return df
 
 
+def group_by_neighborhood(gdf, avg_cols=None, sum_cols=None):
+    avg_cols = avg_cols or []
+    sum_cols = sum_cols or []
+
+
+    if not (avg_cols or sum_cols):
+        raise ValueError("At least one of avg_cols or sum_cols must contain a valid column name.")
+
+    weighted_cols = avg_cols + sum_cols
+
+    gdf = gdf.copy()
+    if "area" not in gdf.columns:
+        gdf["area"] = gdf.geometry.area
+
+    hoods = get_neighborhoods()
+    # drop any columns in hood that's in gdf
+    drop = hoods.columns.intersection(gdf.columns)
+    hoods.drop(columns=drop, inplace=True, errors="ignore")
+
+    inter = gpd.overlay(gdf, hoods, how="intersection", keep_geom_type=False)
+    inter["inter_area"] = inter.geometry.area
+    inter["weight"] = inter.inter_area / inter.area
+
+    inter[weighted_cols] = inter[weighted_cols] * inter["weight"]
+
+    results = inter[["nta2020", "weight"] + weighted_cols].groupby("nta2020").agg("sum").reset_index()
+    if avg_cols:
+        results[avg_cols] = results[avg_cols] / results["weight"]
+    return results
+
+
 def get_neighborhoods(cache=True):
 
     url ="https://data.cityofnewyork.us/resource/9nt8-h7nd.geojson"

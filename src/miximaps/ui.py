@@ -1,5 +1,5 @@
 from IPython.display import Markdown as md
-from IPython.display import display
+from IPython.display import display, HTML
 from decimal import *
 
 import matplotlib as mpl
@@ -79,7 +79,7 @@ def make_labels(m, df, col, style={}):
     
     """
     default_style = {
-        "min-width: 80px"
+        "min-width": "120px",
         "font-size": "10pt",
         "font-weight": "bold",
         "color": "black"
