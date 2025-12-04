@@ -7,6 +7,7 @@ import matplotlib as mpl
 import folium
 from functools import partial
 import xyzservices.providers as xyz
+import appdirs
 
 
 
@@ -231,3 +232,121 @@ def round_f(f, places):
         whole = ""
     frac = frac.ljust(places, "0")
     return f"{whole}.{frac}"
+
+
+def patches(m, items, title="", position="topleft"):
+    """Create an interactive legend for the map with the items listed
+    in the order they are passed in. The items should be a list
+    of tuples with the first element being the label, the second
+    being the html color, and (optional) third being a layer name.
+    If a layer is included, the when that legend item is clicked, 
+    items in that layer will be highlighted (toggled).
+
+
+    Parameters
+    ----------
+    m: folium.Map the map to add the legend to
+    items: list of tuples
+        The items to include in the legend in the format (label, color)
+        they will be displayed in the order they are passed in.
+        For example: [("label1", "red"), ("label2", "blue"), ("label3", "#00ff00")]
+        or [("label1", "red", "layer1"), ("label2", "blue", "layer2"), ("label3", "#00ff00", "layer3")]
+        If the first tuple has 3 items, it is assumed that the legend will be
+        interactive to toggle layers, i.e. each item **must** have a layer.
+    title: str
+        The title of the legend, appears at the top of the legend (default is "").
+    position: string
+        topleft | topright | bottomleft | bottomright (default is "topleft")
+        Where to position the legend on the map. Not implemented yet.
+    
+    Returns
+    -------
+    folium.Map
+        The map with the legend added to it.
+    """
+
+    css = """
+.MapLegend {
+  position: absolute;
+  top: 10px;
+  left: 80px;
+  width: 200px;
+  max-height: 600px;
+  background: rgba(255,255,255,.8);
+  z-index: 1000;
+  padding: 1em;
+  border: 2px solid lightgray;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 14px;
+  font-weight: bold;
+}
+.LegendItem {
+    display: flex; 
+    align-items: start; 
+    margin-bottom: .5em;
+}
+.LegendMarker {
+    width: 12px;
+    height: 12px;
+}
+
+.LegendLabel {
+    line-height: 14px; 
+    padding-left: .25em; 
+    font-size: 12px;
+}
+.MapLegend .clickable {
+    cursor: pointer;
+}
+.dim {
+    opacity: .2;
+}
+"""
+
+    js = """
+function toggleMarkers(color) {
+  console.log("toggling markers with color", color);
+  const markers = document.querySelectorAll('path.leaflet-interactive');
+  console.log(markers);
+  const toggle = document.querySelectorAll('path.leaflet-interactive[stroke="'+color+'"]');
+  console.log(toggle);
+  markers.forEach(marker => marker.classList.add("dim"));
+  toggle.forEach(marker => marker.classList.remove("dim"));
+}
+"""
+
+    def legend_item(label, color, layer=None):
+        onclick = ""
+        clickable = ""
+        if layer:
+            onclick = f"toggleMarkers('{color}')"
+            clickable = " clickable"
+        return f"""
+        <div class="LegendItem">
+          <div class="LegendMarker{clickable}" onclick="{onclick}" style="background:{color};">&nbsp;</div>
+          <div class="LegendLabel{clickable}" onclick="{onclick}"><strong>{label}</strong></div>
+        </div>
+"""
+
+    if len(items[0]) == 2:
+        legend_items = "".join([legend_item(label, color)
+                               for label, color in items])
+    elif len(items[0]) == 3:
+        legend_items = "".join([legend_item(label, color, layer)
+                               for label, color, layer in items])
+    else:
+        raise ValueError(
+            "Legend items must be a list of tuples with 2 or 3 elements.")
+
+    html = f"""
+<div class="MapLegend">
+  <style>{css}</style>
+  <script>{js}</script>
+  <h4><strong>{title}</strong></h4>
+  {legend_items}
+</div>
+"""
+
+    m.get_root().html.add_child(folium.Element(html))
+    return m
