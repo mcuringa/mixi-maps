@@ -9,8 +9,6 @@ from functools import partial
 import xyzservices.providers as xyz
 import appdirs
 
-
-
 def base_map(gdf=None, center=None, zoom=10, provider=xyz.CartoDB.Positron, name=""):
     """
     Create a base map using Folium.
@@ -100,6 +98,105 @@ def make_labels(m, df, col, style={}):
     return m
 
 
+
+
+def use_sidebar(m, sidebar="sidebar"):
+    """
+    Create a sidebar for a folium map. This function
+    injects CSS, HTML, and JavaScript that will display
+    the folium popup content in a sidebar.
+
+    Parameters
+    ----------
+    m: folium.Map
+        The map to add the sidebar to
+    sidebar: str
+        The name of the feature/dataframe column to use for the sidebar content.
+
+    Returns
+    -------
+    folium.Map
+        The map with the sidebar added
+
+    """
+
+    map_id = m.get_name()
+
+    css = """
+.Sidebar {
+  position: absolute;
+  top: 0px;
+  bottom: 0px;
+  right: 0px;
+  min-width: 400px;
+  width: 20%;
+  max-width: 600px;
+  background: rgba(255,255,255,.8);
+  z-index: 1000;
+  padding: 1em;
+  border: 2px solid lightgray;
+  overflow: auto;
+  font-size: 14px;
+  display: none;
+}
+
+.leaflet-popup {
+  display: none !important;
+}
+"""
+
+    js = """
+
+const showSidebar = (e, feature) => {
+    const sidebar = document.querySelector('.Sidebar');
+
+    sidebar.style.display = 'block';
+    sidebar.innerHTML = '';
+
+    let content = e.popup._source.feature.properties[feature];
+    sidebar.innerHTML = content;
+
+    /*
+    if (typeof content === 'string') {
+        
+    } else if (content instanceof HTMLElement) {
+        sidebar.appendChild(content.cloneNode(true));
+    } else {
+        sidebar.textContent = String(content);
+    }*/
+};
+
+function registerSidebar(mapId, feature) {
+    console.log("map", mapId);
+    console.log("sidebar", feature);
+
+    if (window.L && window[mapId]) {
+        const sidebar = document.querySelector('.Sidebar');
+        const map = window[mapId];
+        map.on('popupopen', (e) => {showSidebar(e, feature)});
+        map.on('popupclose', ()=> { sidebar.style.display = 'none'; })
+    } else {
+        setTimeout(()=>{registerSidebar(mapId, feature)}, 25);
+    }
+}
+
+"""
+
+    html = f"""
+<div class="Sidebar"></div>
+<style>{css}</style>
+<script>
+{js}
+</script>
+"""
+
+
+    m.get_root().html.add_child(folium.Element(html))
+    m.get_root().script.add_child(folium.Element(f""" registerSidebar('{map_id}', '{sidebar}'); """))
+    return m
+
+
+
 def popup(cols, style={"min-width": "200px"}, title=True, fmt_funcs={}):
     """
     Create a function that will generate an HTML popup for a folium map.
@@ -123,6 +220,9 @@ def popup(cols, style={"min-width": "200px"}, title=True, fmt_funcs={}):
         The CSS style to apply to the popup <div>. Default is {"min-width": "200px"}
     title: bool
         If `True`, the value of the first column will be bold and appear without a label
+    raw: bool
+        If `True`, the popup will not be wrapped in a <div> with the specified style.
+        Otherwise just the column items are returned without a parent container.
     fmt_funcs: dict
         A dictionary of functions to apply to the data in each column.
         The keys are the column names and the values are the functions to apply.
@@ -146,6 +246,82 @@ def popup(cols, style={"min-width": "200px"}, title=True, fmt_funcs={}):
         return f'<div style="{style_str}">{items}</div>'
 
     return html
+
+
+def radial_cluster(df, group_col, r):
+    """
+    Creates 2 new geometry columns for each row in df, arranging points radially around
+    a computed cluster center for each group.
+
+    Parameters
+    ----------
+    df : GeoDataFrame
+         Contains point geometries.
+    group_col : str
+         Column name to group on. Points in each group will be arranged radially around the group center.
+    r : int or callable
+         The radius (in meters) for the radial placement. If r is an int, it is used as a fixed radius.
+         If r is a function, it should accept (cluster_center, row) and return an int.
+
+    Returns
+    -------
+    GeoDataFrame
+         A copy of df with two new columns:
+         - `geometry`: the new point geometry replaces the cluster center; 
+            placed at a fixed distance from the cluster center.
+         - `spoke_geom`: a LineString from the cluster center to the new point geometry.
+         The GeoDataFrame’s active geometry will be set to `translated_geom`.
+
+
+    """
+    import numpy as np
+    from shapely.geometry import LineString, Point
+    from shapely import affinity
+    import geopandas as gpd
+
+    df = df.copy()
+
+    def process_group(group):
+        group = group.copy()
+        n = len(group)
+        union = group.unary_union
+        if isinstance(union, Point):
+            cluster_center = union
+        else:
+            cluster_center = union.centroid
+
+        group["cluster_center"] = cluster_center
+
+        group["angle"] = np.linspace(0, 360, n, endpoint=False)
+
+        def update_row(row):
+            meters = r
+            if callable(r):
+                meters = r(cluster_center, row)
+
+            # Approximate conversion factors (these are rough estimates).
+            d_lat = meters / 111320
+            d_lon = meters / \
+                (40075000 * np.cos(np.deg2rad(cluster_center.y)) / 360)
+
+            angle_rad = np.deg2rad(row["angle"])
+            dx = d_lon * np.cos(angle_rad)
+            dy = d_lat * np.sin(angle_rad)
+
+            new_point = affinity.translate(cluster_center, xoff=dx, yoff=dy)
+            spoke = LineString(
+                [(cluster_center.x, cluster_center.y), (new_point.x, new_point.y)])
+
+            row["geometry"] = new_point
+            row["spoke_geom"] = spoke
+            return row
+
+        return group.apply(update_row, axis=1)
+
+    result = df.groupby(group_col).apply(process_group).reset_index(drop=True)
+    result = result.drop(columns=["angle", "cluster_center"])
+    return gpd.GeoDataFrame(result, geometry="geometry", crs=df.crs)
+
 
 
 def fmt_num(col, n):

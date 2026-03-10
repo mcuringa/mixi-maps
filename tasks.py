@@ -52,24 +52,21 @@ def build(c):
 
 
 @with_env
-def push(c, production=False):
+def push(c):
     """Push the current distribution to pypi.
     By default, this pushes to testpypi.
     To push to pypi, use the -p or --production flag.
     """
 
     api_token = os.getenv("PYPI_API_TOKEN")
-    print(api_token)
 
     project = get_project_config()
     current = f"{project['name']}-{project['version']}"
-    print(current)
-    if production:
-        print("Pushing to pypi. This is NOT A DRILL.")
-        c.run(f"twine upload dist/{current}* -u __token__ -p {api_token}")
-    else:
-        print("Pushing to testpypi")
-        c.run(f"twine upload --repository testpypi dist/{current}*")
+    print("Pushing to pypi. This is NOT A DRILL.")
+    cmd = f"twine upload dist/{current}.tar.gz -u __token__ -p {api_token}"
+    print(cmd)
+    c.run(cmd)
+
 
 @task
 def test(c, opt=""):

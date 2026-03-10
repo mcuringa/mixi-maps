@@ -29,6 +29,32 @@ def nice_label(var):
         var = var[:-1]
     return var
 
+def tables(year=2023):
+    """Get a list of census ACS 5 data tables from meta data.
+        Parameters
+        ----------
+        year : int, optional
+            The year of the ACS data, by default 2023
+        Returns
+        -------
+        DataFrame
+            A DataFrame of table metadata.
+
+
+        Example
+        -------
+        from miximaps import census as mc
+        tables = mc.tables()
+         = 
+    
+    """
+    url = f"https://api.census.gov/data/{year}/acs/acs5/groups.json"
+    data = data = dc.read_file(url)
+    tables = data["groups"]
+    df = pd.DataFrame(tables)
+    df["type"] = df["name"].str.extract(r"^([A-Z]+)")
+    return df
+
 def table_vars(table, year=2023):
     """Look up a census ACS 5 data table from meta data.
         Parameters
@@ -79,6 +105,64 @@ def county_mapper(statefp="state", countyfp="county"):
         fips = r[statefp] + r[countyfp]
         return county_mapper.get(fips, f"Unknown ({fips})")
     return m
+
+
+def get_us(c, table, year=2023, filename=None):
+    """
+    Get census data for the entire US.
+
+    Parameters
+    ----------
+    c : Census
+        An initialized Census object from the census module.
+    table : str
+        The ACS5 table identifier (e.g., "B01001").
+    state_counties : list of tuples
+        A list of (state_fips, [county_fips]) tuples to specify which counties
+        to include.
+    year : int, optional
+        The year of the ACS data (default is 2023). This is used to match the
+        tiger/line data to the ACS data year (which is initialized in the Census object).
+    filename : str, optional
+        If provided, the function will cache the results to this filename
+        in the default data cache directory (i.e. provide just the unique filename, not a path).
+        This cached file will be used in subsequent calls to avoid redundant API requests.
+    geo : bool, optional
+        If `True` (default), return TIGER/line tract geometries, else just return the
+        ACS5 tract data.
+    
+
+    Returns
+    -------
+    GeoDataFrame
+        A GeoDataFrame containing the ACS data. The data is merged with 
+        TIGER/Line tract geometries if `geo` is `True` (default).
+        Large water areas are removed from the geometries.
+    """
+
+
+    cache = False
+    if filename:
+        path = dc.local_path(filename)
+        filename = os.path.join(path, filename)
+
+        if os.path.exists(filename):
+            return dc.read_file(filename)
+        cache = True
+
+    fields = table_vars(table, year=year)
+    # # add population estimate into every query
+    fields["B01003_001E"] = "total_population"
+    vars = list(fields.keys())
+
+
+    data = c.acs5.us(vars)
+    df = pd.DataFrame(data)
+    df.rename(columns=fields, inplace=True)
+    df.dropna(inplace=True)
+    if cache:
+        dc.write_cache(df, filename)
+    return df
 
 
 def get_tracts(c, table, state_counties, year=2023, filename=None, geo=True):
@@ -160,7 +244,6 @@ def get_tracts(c, table, state_counties, year=2023, filename=None, geo=True):
         df = tiger.clip_water(df)
 
     if cache:
-        print("writing cache")
         dc.write_cache(df, filename)
     return df
 
@@ -175,16 +258,16 @@ def _get_geoidfq(row, year):
     return f"1400000US{row[st]}{row[ct]}{row[tc]}"
 
 
-# def search(term, results=20):
-#     tables = get_tables()
-#     tables = tables[tables.concept.notnull()]
-#     vectorizer = TfidfVectorizer()
-#     tfidf_matrix = vectorizer.fit_transform(tables.concept)
+def search(term, results=20):
+    tables = tables()
+    tables = tables[tables.concept.notnull()]
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(tables.concept)
 
-#     query_vec = vectorizer.transform([term])
-#     tables["match"] = cosine_similarity(query_vec, tfidf_matrix).flatten()
-#     tables.sort_values(by='match', ascending=False, inplace=True)
-#     tables = tables.head(results).copy()
-#     results = tables.style.set_properties(subset=['concept'], **{'white-space': 'pre-wrap', 'word-wrap': 'break-word'})
-#     results.format({'match': '{:.2%}', 'concept': lambda x: x.title()})
-#     return results
+    query_vec = vectorizer.transform([term])
+    tables["match"] = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    tables.sort_values(by='match', ascending=False, inplace=True)
+    tables = tables.head(results).copy()
+    results = tables.style.set_properties(subset=['concept'], **{'white-space': 'pre-wrap', 'word-wrap': 'break-word'})
+    results.format({'match': '{:.2%}', 'concept': lambda x: x.title()})
+    return results
